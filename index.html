@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>한 장씩 집행기준</title>
+<style>
+:root{--bg:#f4f5f6;--paper:#fff;--ink:#17191c;--sub:#6f747b;--line:#e4e6e8;--accent:#d85b48;--dark:#24272b}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;line-height:1.7}
+.wrap{max-width:880px;margin:0 auto;padding:34px 18px 70px}.top{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:18px}.eyebrow{font-size:13px;color:var(--sub);letter-spacing:.08em}.title{font-size:27px;font-weight:800;margin-top:3px}.progress{text-align:right;font-size:14px;color:var(--sub)}.progress b{font-size:18px;color:var(--ink)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:18px;box-shadow:0 5px 18px rgba(0,0,0,.035);overflow:hidden}.head{padding:22px 26px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:center}.tax{font-size:17px;font-weight:800}.page{color:var(--accent);font-weight:800}.body{padding:24px 28px 30px}.body pre{margin:0;white-space:pre-wrap;word-break:keep-all;font:inherit;font-size:15.5px;line-height:1.78}.continue{margin-top:26px;padding-top:24px;border-top:1px dashed #cfd2d5}.continue .tag{display:inline-block;font-size:12px;font-weight:800;color:var(--accent);background:#fff3f0;border-radius:999px;padding:4px 9px;margin-bottom:12px}
+.actions{display:flex;gap:10px;margin-top:16px}.btn{border:0;border-radius:12px;padding:14px 18px;font-size:15px;font-weight:800;cursor:pointer}.next{flex:1;background:var(--dark);color:#fff}.source{background:#fff;border:1px solid var(--line);color:var(--ink)}.foot{display:flex;justify-content:space-between;gap:10px;margin-top:14px;color:var(--sub);font-size:12px}.reset{border:0;background:none;color:var(--sub);text-decoration:underline;cursor:pointer;padding:0;font:inherit}
+.done{text-align:center;padding:65px 30px}.done h2{margin:0 0 8px;font-size:26px}.done p{color:var(--sub)}
+@media(max-width:600px){.wrap{padding:22px 12px 50px}.top{align-items:flex-start}.title{font-size:23px}.head{padding:18px}.body{padding:20px 18px 24px}.body pre{font-size:14.5px;line-height:1.72}.actions{flex-direction:column}.source{order:2}.foot{display:block}.foot span{display:block;margin-bottom:4px}}
+</style></head><body><div class="wrap"><div class="top"><div><div class="eyebrow">개인 공부용 · 2024년 9월 기준</div><div class="title">한 장씩 집행기준</div></div><div class="progress" id="prog"></div></div><div id="app"></div></div>
+<script src="data-01.js"></script><script src="data-02.js"></script><script src="data-03.js"></script><script src="data-04.js"></script><script src="data-05.js"></script><script src="data-06.js"></script><script src="data-07.js"></script><script src="data-08.js"></script><script src="data-09.js"></script><script src="data-10.js"></script><script src="data-11.js"></script><script src="data-12.js"></script><script src="data-13.js"></script><script src="data-14.js"></script><script src="data-15.js"></script><script src="data-16.js"></script>
+<script>
+const KEY='taxStudyUnified316_v3'; const ALL=TAXDATA;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function fresh(){return {order:shuffle(ALL.map((_,i)=>i)),pos:0,started:new Date().toISOString()}}
+let state; try{state=JSON.parse(localStorage.getItem(KEY))}catch(e){} if(!state||!Array.isArray(state.order)||state.order.length!==ALL.length)state=fresh();
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function sourceUrl(p){return p.tax==='sangjeung'?'https://taxlaw.nts.go.kr/downloadPDFFile.do?fleId=300000000000991467&fleSn=896290':'https://taxlaw.nts.go.kr/'}
+function render(){
+ const app=document.getElementById('app'),prog=document.getElementById('prog');
+ if(state.pos>=ALL.length){prog.innerHTML='<b>316 / 316</b>'; app.innerHTML='<div class="card done"><h2>1회독 완료</h2><p>양도소득세 + 상속·증여세 집행기준 316쪽을 모두 봤습니다.</p><button class="btn next" onclick="resetAll()">다시 섞어서 2회독 시작</button></div>';return}
+ const idx=state.order[state.pos],p=ALL[idx];
+ const next=p.withNext?ALL.find(x=>x.tax===p.tax&&x.page===p.page+1):null;
+ prog.innerHTML='<b>'+(state.pos+1)+' / '+ALL.length+'</b><br>통합 랜덤 1회독';
+ let extra=next?'<div class="continue"><span class="tag">이어지는 다음 쪽 함께 보기 · '+next.page+'쪽</span><pre>'+esc(next.text)+'</pre></div>':'';
+ app.innerHTML='<section class="card"><div class="head"><div class="tax">'+p.label+' 집행기준</div><div class="page">'+p.page+'쪽'+(next?'–'+next.page+'쪽':'')+'</div></div><div class="body"><pre>'+esc(p.text)+'</pre>'+extra+'</div></section><div class="actions"><a class="btn source" href="'+sourceUrl(p)+'" target="_blank" rel="noopener">원문 보기</a><button class="btn next" onclick="doneNext()">읽었음 · 다음</button></div><div class="foot"><span>읽은 항목만 진행됩니다. 같은 브라우저에서는 자동 저장.</span><button class="reset" onclick="resetAll()">진행상황 초기화</button></div>';
+}
+function doneNext(){state.pos++;save();render();window.scrollTo({top:0,behavior:'smooth'})}
+function resetAll(){if(confirm('진행상황을 지우고 316쪽을 다시 섞을까요?')){state=fresh();save();render();window.scrollTo(0,0)}}
+save();render();
+</script></body></html>
