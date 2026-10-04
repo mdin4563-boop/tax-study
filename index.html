@@ -27,6 +27,8 @@ h1{font-size:27px;line-height:1.2;margin:4px 0 0}
 .actions{display:flex;gap:10px;margin-top:14px}
 .btn{border-radius:12px;padding:14px 18px;font-size:15px;font-weight:800;text-decoration:none;cursor:pointer;text-align:center}
 .source{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.prev{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.prev:disabled{opacity:.38;cursor:default}
 .next{border:0;background:var(--dark);color:#fff;flex:1}
 .note{display:flex;justify-content:space-between;gap:15px;margin-top:12px;color:var(--sub);font-size:12px}
 .reset{font:inherit;border:0;background:none;color:var(--sub);text-decoration:underline;cursor:pointer;padding:0}
@@ -73,22 +75,23 @@ function fresh(){return {order:shuffle(ALL.map((_,i)=>i)),pos:0,started:new Date
 let state;
 try{state=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!state||!Array.isArray(state.order)||state.order.length!==ALL.length) state=fresh();
+if(!Number.isInteger(state.viewPos)) state.viewPos=state.pos;
 function save(){localStorage.setItem(KEY,JSON.stringify(state))}
 function preload(){
-  const nextPos=state.pos+1;
+  const nextPos=state.viewPos+1;
   if(nextPos>=ALL.length)return;
   const p=ALL[state.order[nextPos]];
   [imgUrl(p,p.page), ...(p.withNext?[imgUrl(p,p.page+1)]:[])].forEach(src=>{const im=new Image();im.src=src});
 }
 function render(){
   const app=document.getElementById('app'), prog=document.getElementById('prog');
-  if(state.pos>=ALL.length){
+  if(state.viewPos>=ALL.length){
     prog.innerHTML='<b>316 / 316</b>통합 랜덤 1회독';
-    app.innerHTML='<div class="card done"><h2>1회독 완료</h2><p>양도소득세 + 상속·증여세 집행기준 316쪽을 모두 봤습니다.</p><button class="btn next" onclick="resetAll()">다시 섞어서 2회독 시작</button></div>';
+    app.innerHTML='<div class="card done"><h2>1회독 완료</h2><p>양도소득세 + 상속·증여세 집행기준 316쪽을 모두 봤습니다.</p><div class="actions"><button class="btn prev" onclick="prevItem()">← 이전</button><button class="btn next" onclick="resetAll()">다시 섞어서 2회독 시작</button></div></div>';
     return;
   }
-  const p=ALL[state.order[state.pos]];
-  prog.innerHTML='<b>'+(state.pos+1)+' / '+ALL.length+'</b>통합 랜덤 1회독';
+  const p=ALL[state.order[state.viewPos]];
+  prog.innerHTML='<b>'+(state.viewPos+1)+' / '+ALL.length+'</b>'+(state.viewPos<state.pos?'이전 항목 보는 중':'통합 랜덤 1회독');
   const second=p.withNext
     ? '<div class="sheet"><div class="continue">이어지는 다음 페이지 · '+(p.page+1)+'쪽</div><img src="'+imgUrl(p,p.page+1)+'" alt="'+p.label+' '+(p.page+1)+'쪽"></div>'
     : '';
@@ -100,12 +103,13 @@ function render(){
         second+
       '</div>'+
     '</section>'+
-    '<div class="actions"><a class="btn source" href="'+p.pdf+'#page='+p.physical+'" target="_blank" rel="noopener">원본 PDF 보기</a><button class="btn next" onclick="doneNext()">읽었음 · 다음</button></div>'+
+    '<div class="actions"><a class="btn source" href="'+p.pdf+'#page='+p.physical+'" target="_blank" rel="noopener">원본 PDF 보기</a><button class="btn prev" onclick="prevItem()" '+(state.viewPos===0?'disabled':'')+'>← 이전</button><button class="btn next" onclick="doneNext()">'+(state.viewPos<state.pos?'다음 →':'읽었음 · 다음')+'</button></div>'+
     '<div class="note"><span>PDF 원본 페이지를 미리 렌더링한 정적 화면입니다. 읽은 항목만 진행됩니다.</span><button class="reset" onclick="resetAll()">진행상황 초기화</button></div>';
   preload();
 }
-function doneNext(){state.pos++;save();render();window.scrollTo(0,0)}
-function resetAll(){if(confirm('진행상황을 지우고 316쪽을 다시 섞을까요?')){state=fresh();save();render();window.scrollTo(0,0)}}
+function prevItem(){if(state.viewPos>0){state.viewPos--;save();render();window.scrollTo(0,0)}}
+function doneNext(){if(state.viewPos<state.pos){state.viewPos++;}else{state.pos=Math.min(state.pos+1,ALL.length);state.viewPos=state.pos;}save();render();window.scrollTo(0,0)}
+function resetAll(){if(confirm('진행상황을 지우고 316쪽을 다시 섞을까요?')){state=fresh();state.viewPos=0;save();render();window.scrollTo(0,0)}}
 save();render();
 </script>
 </body>
