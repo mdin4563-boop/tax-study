@@ -22,10 +22,9 @@ jobs:
           mkdir -p pdfs
 
           fetch_book() {
-            local bsc="$1"
-            local book="$2"
-            local out="$3"
-            local param
+            bsc="$1"
+            book="$2"
+            out="$3"
             param=$(printf '{"ntstBscId":"%s","ntstPlcnBkId":"%s"}' "$bsc" "$book")
 
             curl -fsSL --retry 3 \
@@ -36,14 +35,10 @@ jobs:
               --data-urlencode "paramData=$param" \
               'https://taxlaw.nts.go.kr/action.do' > /tmp/years.json
 
-            read -r fleId fleSn < <(python3 - <<'PY'
-import json
-j=json.load(open('/tmp/years.json',encoding='utf-8'))
-rows=j['data']['ASISTE001MR03']['exeBaseDVOList']
-r=next(x for x in rows if str(x.get('rgtYr'))=='2024')
-print(r['fleId'], r['fleSn'])
-PY
-            )
+            ids=$(python3 -c "import json; j=json.load(open('/tmp/years.json')); rows=j['data']['ASISTE001MR03']['exeBaseDVOList']; r=next(x for x in rows if str(x.get('rgtYr'))=='2024'); print(r['fleId'], r['fleSn'])")
+            set -- $ids
+            fleId="$1"
+            fleSn="$2"
 
             echo "Downloading $out from fleId=$fleId fleSn=$fleSn"
             curl -fsSL --retry 3 \
@@ -51,14 +46,7 @@ PY
               "https://taxlaw.nts.go.kr/downloadPDFFile.do?fleId=$fleId&fleSn=$fleSn" \
               -o "pdfs/$out"
 
-            python3 - "$out" <<'PY'
-import sys, pathlib
-p=pathlib.Path('pdfs')/sys.argv[1]
-head=p.read_bytes()[:5]
-if head != b'%PDF-':
-    raise SystemExit(f'{p} is not a PDF: {head!r}')
-print(p, p.stat().st_size)
-PY
+            python3 -c "import pathlib,sys; p=pathlib.Path('pdfs')/sys.argv[1]; h=p.read_bytes()[:5]; assert h==b'%PDF-', (p,h); print(p,p.stat().st_size)" "$out"
           }
 
           fetch_book '200000000000001565' '511100000000000006' 'yangdo.pdf'
