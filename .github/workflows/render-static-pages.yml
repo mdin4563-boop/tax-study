@@ -1,0 +1,64 @@
+name: Render static PDF pages
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/render-static-pages.yml"
+      - "pdfs/yangdo.pdf"
+      - "pdfs/sangjeung.pdf"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render PDF pages once
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf pages _render
+          mkdir -p pages _render/y _render/s
+
+          # Body pages only. Render once on the server; the browser will only display static JPEGs.
+          pdftoppm -f 25 -l 155 -r 150 -jpeg -jpegopt quality=86 pdfs/yangdo.pdf _render/y/page
+          pdftoppm -f 23 -l 207 -r 150 -jpeg -jpegopt quality=86 pdfs/sangjeung.pdf _render/s/page
+
+          python3 - <<'PY'
+from pathlib import Path
+import re, shutil
+
+def move(src_dir, prefix, expected):
+    files=list(Path(src_dir).glob('page-*.jpg'))
+    files.sort(key=lambda p:int(re.search(r'(\d+)$', p.stem).group(1)))
+    if len(files)!=expected:
+        raise SystemExit(f'{src_dir}: expected {expected}, got {len(files)}')
+    out=Path('pages')
+    for i,p in enumerate(files,1):
+        shutil.move(str(p), out/f'{prefix}-{i:03d}.jpg')
+
+move('_render/y','yangdo',131)
+move('_render/s','sangjeung',185)
+print('rendered', len(list(Path('pages').glob('*.jpg'))), 'static pages')
+PY
+
+          du -sh pages
+          rm -rf _render
+
+      - name: Commit static pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pages
+          if git diff --cached --quiet; then
+            echo "Static pages unchanged"
+            exit 0
+          fi
+          git commit -m "Add static PDF page images"
+          git push
