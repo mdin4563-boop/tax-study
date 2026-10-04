@@ -1,0 +1,79 @@
+name: Fetch NTS PDFs
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/fetch-pdfs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch current 2024 execution-standard PDFs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pdfs
+
+          fetch_book() {
+            local bsc="$1"
+            local book="$2"
+            local out="$3"
+            local param
+            param=$(printf '{"ntstBscId":"%s","ntstPlcnBkId":"%s"}' "$bsc" "$book")
+
+            curl -fsSL --retry 3 \
+              -H 'User-Agent: Mozilla/5.0' \
+              -H 'X-Requested-With: XMLHttpRequest' \
+              -H 'Referer: https://taxlaw.nts.go.kr/st/USESTE002M.do' \
+              --data-urlencode 'actionId=ASISTE001MR03' \
+              --data-urlencode "paramData=$param" \
+              'https://taxlaw.nts.go.kr/action.do' > /tmp/years.json
+
+            read -r fleId fleSn < <(python3 - <<'PY'
+import json
+j=json.load(open('/tmp/years.json',encoding='utf-8'))
+rows=j['data']['ASISTE001MR03']['exeBaseDVOList']
+r=next(x for x in rows if str(x.get('rgtYr'))=='2024')
+print(r['fleId'], r['fleSn'])
+PY
+            )
+
+            echo "Downloading $out from fleId=$fleId fleSn=$fleSn"
+            curl -fsSL --retry 3 \
+              -H 'User-Agent: Mozilla/5.0' \
+              "https://taxlaw.nts.go.kr/downloadPDFFile.do?fleId=$fleId&fleSn=$fleSn" \
+              -o "pdfs/$out"
+
+            python3 - "$out" <<'PY'
+import sys, pathlib
+p=pathlib.Path('pdfs')/sys.argv[1]
+head=p.read_bytes()[:5]
+if head != b'%PDF-':
+    raise SystemExit(f'{p} is not a PDF: {head!r}')
+print(p, p.stat().st_size)
+PY
+          }
+
+          fetch_book '200000000000001565' '511100000000000006' 'yangdo.pdf'
+          fetch_book '100000000000001561' '511100000000000008' 'sangjeung.pdf'
+
+      - name: Commit PDFs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pdfs/yangdo.pdf pdfs/sangjeung.pdf
+          if git diff --cached --quiet; then
+            echo "PDFs unchanged"
+            exit 0
+          fi
+          git commit -m "Add original NTS execution-standard PDFs"
+          git push
