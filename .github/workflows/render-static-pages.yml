@@ -23,29 +23,13 @@ jobs:
           set -euo pipefail
           rm -rf pages _render
           mkdir -p pages _render/y _render/s
-
-          # Body pages only. Render once on the server; the browser will only display static JPEGs.
           pdftoppm -f 25 -l 155 -r 150 -jpeg -jpegopt quality=86 pdfs/yangdo.pdf _render/y/page
           pdftoppm -f 23 -l 207 -r 150 -jpeg -jpegopt quality=86 pdfs/sangjeung.pdf _render/s/page
 
-          python3 - <<'PY'
-from pathlib import Path
-import re, shutil
+          python3 -c "from pathlib import Path; import re,shutil; files=sorted(Path('_render/y').glob('page-*.jpg'),key=lambda p:int(re.search(r'(\\d+)$',p.stem).group(1))); assert len(files)==131,len(files); [shutil.move(str(p),Path('pages')/f'yangdo-{i:03d}.jpg') for i,p in enumerate(files,1)]"
+          python3 -c "from pathlib import Path; import re,shutil; files=sorted(Path('_render/s').glob('page-*.jpg'),key=lambda p:int(re.search(r'(\\d+)$',p.stem).group(1))); assert len(files)==185,len(files); [shutil.move(str(p),Path('pages')/f'sangjeung-{i:03d}.jpg') for i,p in enumerate(files,1)]"
 
-def move(src_dir, prefix, expected):
-    files=list(Path(src_dir).glob('page-*.jpg'))
-    files.sort(key=lambda p:int(re.search(r'(\d+)$', p.stem).group(1)))
-    if len(files)!=expected:
-        raise SystemExit(f'{src_dir}: expected {expected}, got {len(files)}')
-    out=Path('pages')
-    for i,p in enumerate(files,1):
-        shutil.move(str(p), out/f'{prefix}-{i:03d}.jpg')
-
-move('_render/y','yangdo',131)
-move('_render/s','sangjeung',185)
-print('rendered', len(list(Path('pages').glob('*.jpg'))), 'static pages')
-PY
-
+          test "$(find pages -name '*.jpg' | wc -l)" -eq 316
           du -sh pages
           rm -rf _render
 
